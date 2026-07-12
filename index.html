@@ -18,6 +18,11 @@
 
   * { box-sizing: border-box; }
 
+  /* hidden 속성은 UA 스타일시트(display:none)로만 적용되어, 이 파일의 다른 규칙이
+     동일 요소에 display를 지정하면(.modal-overlay 등) 우선순위상 덮어써 버림.
+     hidden이 항상 이기도록 전역으로 강제. */
+  [hidden] { display: none !important; }
+
   body {
     margin: 0;
     padding: 0;
@@ -483,6 +488,147 @@
     transform: translateX(-50%) translateY(0);
   }
 
+  .export-section {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 56px;
+  }
+
+  .export-title {
+    font-size: 16px;
+    margin: 0 0 16px;
+  }
+
+  .export-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+  }
+
+  .export-field input[type="text"] {
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: #fff;
+    color: var(--color-text);
+  }
+
+  .export-filename {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin: 0 0 20px;
+  }
+
+  .export-scope {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 10px;
+    font-size: 14px;
+  }
+
+  .export-scope-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .export-scope-option input {
+    accent-color: var(--color-accent);
+  }
+
+  .export-count {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin: 0 0 16px;
+  }
+
+  .export-btn {
+    width: auto;
+    padding: 12px 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 600;
+  }
+
+  .export-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    display: inline-block;
+    animation: spin 0.7s linear infinite;
+  }
+
+  button.action-btn.export-btn:not(:disabled) {
+    background: var(--color-accent);
+    color: #fff;
+    border-color: var(--color-accent);
+  }
+
+  .export-btn.generating .export-spinner {
+    border: 2px solid rgba(58,52,44,0.25);
+    border-top-color: var(--color-text);
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .export-reason {
+    font-size: 12px;
+    color: var(--color-accent);
+    margin: 8px 0 0;
+  }
+
+  .export-note {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin: 16px 0 0;
+    line-height: 1.6;
+  }
+
+  .baseline-hint {
+    font-size: 12px;
+    color: var(--color-accent);
+    margin: 6px 0 0;
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26,26,26,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    padding: 24px;
+  }
+
+  .modal-box {
+    background: #fff;
+    border-radius: 10px;
+    padding: 24px;
+    max-width: 320px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .modal-box .action-btn {
+    width: auto;
+    padding: 10px 24px;
+    margin-top: 16px;
+  }
+
   @media (max-width: 720px) {
     .app-layout {
       flex-direction: column;
@@ -515,7 +661,8 @@
     }
     .glyph-grid-section,
     .derived-panel-section,
-    .preview-section {
+    .preview-section,
+    .export-section {
       padding-left: 16px;
       padding-right: 16px;
     }
@@ -546,6 +693,7 @@
     <div class="prompt">
       <h2># 지금 쓸 글자: <span id="currentChar">あ</span></h2>
       <p id="charHint">칸 가운데에 크게 써 주세요. 획 순서는 자유입니다.</p>
+      <p class="baseline-hint" id="baselineHint" hidden>이 선 위에 글자를 얹으면 영문이 가지런해집니다 (g, y의 꼬리는 선 아래로)</p>
     </div>
 
     <div class="workspace">
@@ -617,8 +765,58 @@
   </div>
 </div>
 
+<div class="export-section">
+  <h3 class="export-title">폰트 내보내기</h3>
+
+  <div class="export-field">
+    <label for="exportFontName">폰트 이름 (필수, 프로그램에 표시)</label>
+    <input type="text" id="exportFontName" placeholder="예: 내손글씨">
+  </div>
+  <div class="export-field">
+    <label for="exportAuthor">제작자 (선택)</label>
+    <input type="text" id="exportAuthor">
+  </div>
+  <div class="export-field">
+    <label for="exportDescription">설명 (선택)</label>
+    <input type="text" id="exportDescription">
+  </div>
+  <p class="export-filename" id="exportFilename">파일 이름: tegaki-font.otf</p>
+
+  <div class="export-scope" id="exportScope">
+    <label class="export-scope-option">
+      <input type="radio" name="exportScope" value="all" checked> 전부
+    </label>
+    <label class="export-scope-option">
+      <input type="radio" name="exportScope" value="hiragana"> 히라가나만
+    </label>
+    <label class="export-scope-option">
+      <input type="radio" name="exportScope" value="katakana"> 가타카나만
+    </label>
+    <label class="export-scope-option">
+      <input type="radio" name="exportScope" value="alnum"> 영숫자만
+    </label>
+  </div>
+  <p class="export-count" id="exportCount">포함될 글자 수: 0자</p>
+
+  <button type="button" class="action-btn export-btn" id="exportBtn" disabled>
+    <span class="export-spinner" id="exportSpinner" hidden></span>
+    <span id="exportBtnLabel">폰트 내려받기 (.otf)</span>
+  </button>
+  <p class="export-reason" id="exportReason" hidden></p>
+
+  <p class="export-note">내려받은 파일을 더블클릭해 설치하면 문서·발표 자료 어디서든 내 글씨체를 쓸 수 있습니다.</p>
+</div>
+
 <div class="toast" id="toast"></div>
 
+<div class="modal-overlay" id="iosModalOverlay" hidden>
+  <div class="modal-box">
+    <p>파일 앱에 저장되었습니다.<br>폰트 설치는 PC 또는 폰트 설치 앱을 이용해 주세요.</p>
+    <button type="button" class="action-btn" id="iosModalCloseBtn">확인</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
 <script>
   // ── 설정값: 모든 튜닝 상수를 이곳에 모아 관리 ──
   const CONFIG = {
@@ -636,6 +834,7 @@
     PREVIEW_MAX_SIZE: 72,
     PREVIEW_DEFAULT_SIZE: 40,
     TOAST_DURATION_MS: 1800,
+    BASELINE_Y: 525,               // 알파벳/숫자 그룹 보조 가이드선 (논리좌표, S4 보너스)
     COLORS: {
       guide: '#e5dccb',
       ink: '#1a1a1a'
@@ -813,6 +1012,7 @@
   const brushOptions = document.getElementById('brushOptions');
   const currentCharEl = document.getElementById('currentChar');
   const charHintEl = document.getElementById('charHint');
+  const baselineHintEl = document.getElementById('baselineHint');
   const prevCharBtn = document.getElementById('prevCharBtn');
   const nextCharBtn = document.getElementById('nextCharBtn');
   const allCompleteBanner = document.getElementById('allCompleteBanner');
@@ -882,6 +1082,17 @@
     ctx.moveTo(0, size / 2);
     ctx.lineTo(size, size / 2);
     ctx.stroke();
+
+    // 보너스: 숫자·알파벳 그룹에서는 베이스라인 가이드 추가 (강제 아님, 참고용)
+    if (currentGroupId === 'digit' || currentGroupId === 'upper' || currentGroupId === 'lower') {
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(217, 79, 48, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, CONFIG.BASELINE_Y);
+      ctx.lineTo(size, CONFIG.BASELINE_Y);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -1068,6 +1279,11 @@
   function updateCharUI() {
     currentCharEl.textContent = state.currentChar;
     charHintEl.innerHTML = getHintHtml(state.currentChar);
+  }
+
+  // 보너스: 숫자·알파벳 그룹에서만 베이스라인 안내 문구 표시
+  function updateBaselineHint() {
+    baselineHintEl.hidden = !(currentGroupId === 'digit' || currentGroupId === 'upper' || currentGroupId === 'lower');
   }
 
   // ── 완료 글자 판정 / 진행률 ──
@@ -1463,6 +1679,7 @@
     updateDerivedPanelCells(affected);
     updateProgressBar();
     schedulePreviewRerender();
+    updateExportButtonState();
   }
 
   // ── 글자 완료 시점마다 project.glyphs와 화면(그리드·진행바·합성·미리보기·저장)을 동기화 ──
@@ -1478,6 +1695,355 @@
     onGlyphChange(char);
     scheduleSave();
   }
+
+  // ═══════════════════════════════════════════════════════════
+  // OTF 폰트 내보내기 (opentype.js)
+  // ═══════════════════════════════════════════════════════════
+
+  const FONT_CONFIG = {
+    unitsPerEm: 1000,
+    ascender: 880,
+    descender: -120,
+    scale: 1000 / 640,             // 논리좌표(640) → 폰트좌표(1000em)
+    sideBearing: 60,                // 프로포셔널 글자 좌우 여백
+    minAdvance: 380,                 // 프로포셔널 글자 최소 advance
+    fullWidthAdvance: 1000,          // 가나·부호 등 전각 advance
+    spaceAdvance: 500,
+    joinStepDeg: 15,                 // 조인/캡 호 보간 각도 간격
+    dedupeDist: 0.5,                 // 획 입력점 중복 제거 거리 (논리좌표)
+    contourDedupeDist: 0.05,         // 외곽선 점 중복 제거 거리 (논리좌표)
+  };
+
+  // 논리좌표(0~640, y 아래방향) → 폰트좌표(0~1000em, y 위방향)
+  // 검증: y=0(칸 상단)→ascender(880), y=640(칸 하단)→descender(-120)
+  function toFontPoint(p) {
+    return [p[0] * FONT_CONFIG.scale, FONT_CONFIG.ascender - p[1] * FONT_CONFIG.scale];
+  }
+
+  function signedArea(points) {
+    let sum = 0;
+    for (let i = 0; i < points.length; i++) {
+      const [x1, y1] = points[i];
+      const [x2, y2] = points[(i + 1) % points.length];
+      sum += x1 * y2 - x2 * y1;
+    }
+    return sum / 2;
+  }
+
+  // 중심 기준 반지름 hw의 호를 angleFrom에서 sweep(라디안, 부호=방향)만큼 보간한 점 배열
+  function arcPoints(center, hw, angleFrom, sweep) {
+    const stepRad = (FONT_CONFIG.joinStepDeg * Math.PI) / 180;
+    const steps = Math.max(1, Math.ceil(Math.abs(sweep) / stepRad));
+    const pts = [];
+    for (let s = 0; s <= steps; s++) {
+      const a = angleFrom + sweep * (s / steps);
+      pts.push([center[0] + Math.cos(a) * hw, center[1] + Math.sin(a) * hw]);
+    }
+    return pts;
+  }
+
+  // 조인(꺾이는 지점)용 호: 두 각도 사이를 "짧은 방향"(≤180°)으로 보간
+  function arcJoin(center, hw, angleFrom, angleTo) {
+    let delta = angleTo - angleFrom;
+    while (delta > Math.PI) delta -= Math.PI * 2;
+    while (delta < -Math.PI) delta += Math.PI * 2;
+    return arcPoints(center, hw, angleFrom, delta);
+  }
+
+  function dedupeContour(points, eps) {
+    const result = [];
+    for (const p of points) {
+      const last = result[result.length - 1];
+      if (!last || dist(last, p) >= eps) result.push(p);
+    }
+    if (result.length > 1 && dist(result[0], result[result.length - 1]) < eps) result.pop();
+    return result;
+  }
+
+  // 획 하나(폴리라인+두께)를 라운드캡 폐곡선 폴리곤으로 확장
+  // (좌표계·방향은 나중에 toFontPoint 변환 후 signedArea로 최종 보정하므로 여기서는 논리좌표로 자유롭게 계산)
+  function strokeToContour(stroke) {
+    const hw = stroke.w / 2;
+    const raw = stroke.pts;
+
+    // 인접 중복점 제거
+    const pts = [raw[0]];
+    for (let i = 1; i < raw.length; i++) {
+      if (dist(pts[pts.length - 1], raw[i]) >= FONT_CONFIG.dedupeDist) pts.push(raw[i]);
+    }
+
+    if (pts.length === 1) {
+      // 점 하나(탭) = 원 (24각형 근사)
+      const circle = [];
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        circle.push([pts[0][0] + Math.cos(a) * hw, pts[0][1] + Math.sin(a) * hw]);
+      }
+      return circle;
+    }
+
+    const n = pts.length;
+    const segAngle = [];
+    for (let i = 0; i < n - 1; i++) {
+      segAngle.push(Math.atan2(pts[i + 1][1] - pts[i][1], pts[i + 1][0] - pts[i][0]));
+    }
+    const leftAngle = (i) => segAngle[i] + Math.PI / 2;
+    const offsetPoint = (p, angle) => [p[0] + Math.cos(angle) * hw, p[1] + Math.sin(angle) * hw];
+
+    const contour = [];
+
+    // 왼쪽 변: 시작 → 끝 (조인은 부채꼴 라운드 처리)
+    contour.push(offsetPoint(pts[0], leftAngle(0)));
+    for (let i = 1; i < n - 1; i++) {
+      contour.push(...arcJoin(pts[i], hw, leftAngle(i - 1), leftAngle(i)));
+    }
+    contour.push(offsetPoint(pts[n - 1], leftAngle(n - 2)));
+
+    // 끝점 캡: 왼쪽(leftAngle)에서 진행방향을 지나 오른쪽(leftAngle-π)까지 반원
+    contour.push(...arcPoints(pts[n - 1], hw, leftAngle(n - 2), -Math.PI));
+
+    // 오른쪽 변: 끝 → 시작 (오른쪽 각도 = 왼쪽 각도 - π)
+    contour.push(offsetPoint(pts[n - 1], leftAngle(n - 2) - Math.PI));
+    for (let i = n - 2; i >= 1; i--) {
+      contour.push(...arcJoin(pts[i], hw, leftAngle(i) - Math.PI, leftAngle(i - 1) - Math.PI));
+    }
+    contour.push(offsetPoint(pts[0], leftAngle(0) - Math.PI));
+
+    // 시작점 캡: 오른쪽에서 뒤쪽을 지나 왼쪽까지 반원 (진행방향 반대쪽으로 폐합)
+    contour.push(...arcPoints(pts[0], hw, leftAngle(0) - Math.PI, -Math.PI));
+
+    return dedupeContour(contour, FONT_CONFIG.contourDedupeDist);
+  }
+
+  // 한 글자의 모든 획을 하나의 opentype.js Path로 조립 (각 획 = 독립 폐곡선, 전부 반시계 방향)
+  // xShiftFont: 프로포셔널 글자의 좌측 사이드베어링 정렬용 x축 평행이동 (폰트좌표 단위)
+  function strokesToOpentypePath(strokes, xShiftFont) {
+    const path = new opentype.Path();
+    for (const stroke of strokes) {
+      let contour = strokeToContour(stroke).map((p) => {
+        const fp = toFontPoint(p);
+        return [fp[0] + xShiftFont, fp[1]];
+      });
+      if (contour.length < 3) continue;
+      if (signedArea(contour) < 0) contour.reverse(); // 반시계 방향 강제
+      path.moveTo(contour[0][0], contour[0][1]);
+      for (let i = 1; i < contour.length; i++) path.lineTo(contour[i][0], contour[i][1]);
+      path.close();
+    }
+    return path;
+  }
+
+  // 속이 빈 사각 테두리 (.notdef 글리프용)
+  function buildNotdefPath() {
+    const path = new opentype.Path();
+    const x1 = 60, y1 = -100, x2 = 640, y2 = 760, t = 40;
+    path.moveTo(x1, y1); path.lineTo(x2, y1); path.lineTo(x2, y2); path.lineTo(x1, y2); path.close();
+    path.moveTo(x1 + t, y1 + t); path.lineTo(x1 + t, y2 - t); path.lineTo(x2 - t, y2 - t); path.lineTo(x2 - t, y1 + t); path.close();
+    return path;
+  }
+
+  function isAsciiAlnumChar(ch) {
+    return /[A-Za-z0-9]/.test(ch);
+  }
+
+  // 글리프 메트릭: 가나·부호는 전각 고정, 숫자·알파벳은 bbox 기반 프로포셔널
+  function computeGlyphMetrics(char, strokes) {
+    if (!isAsciiAlnumChar(char)) {
+      return { advanceWidth: FONT_CONFIG.fullWidthAdvance, xShift: 0 };
+    }
+    const bbox = computeBBox(strokes);
+    if (!bbox) return { advanceWidth: FONT_CONFIG.minAdvance, xShift: 0 };
+    const widthFont = bbox.width * FONT_CONFIG.scale;
+    const advanceWidth = Math.max(FONT_CONFIG.minAdvance, widthFont + FONT_CONFIG.sideBearing * 2);
+    const xShift = FONT_CONFIG.sideBearing - bbox.minX * FONT_CONFIG.scale;
+    return { advanceWidth, xShift };
+  }
+
+  // 파생 글자의 "재료" 글자가 속한 문자 그룹을 따라 스크립트 판정 (내보내기 범위 필터용)
+  function scriptOfChar(char) {
+    const group = CHAR_TO_GROUP.get(char);
+    if (group) return group;
+    const info = DERIVED[char];
+    if (info) return scriptOfChar(info.base);
+    return null;
+  }
+
+  function getCharsForScope(scope) {
+    const available = getAvailableChars();
+    if (scope === 'all') return available.slice();
+    return available.filter((c) => {
+      const script = scriptOfChar(c);
+      if (scope === 'hiragana') return script === 'hiragana' || script === 'mark';
+      if (scope === 'katakana') return script === 'katakana' || script === 'mark';
+      if (scope === 'alnum') return script === 'digit' || script === 'upper' || script === 'lower';
+      return false;
+    });
+  }
+
+  function isAsciiString(str) {
+    return /^[\x00-\x7F]*$/.test(str);
+  }
+
+  function sanitizeFilename(name) {
+    const cleaned = name.normalize('NFC').replace(/[\\/:*?"<>|]/g, '').trim().replace(/\s+/g, '-');
+    return cleaned || 'tegaki-font';
+  }
+
+  function isIOSDevice() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  }
+
+  // 글자 배열 → opentype.js Font 조립 (.notdef + space + 대상 글자 전부)
+  function generateFont(chars, meta) {
+    const glyphs = [];
+
+    glyphs.push(new opentype.Glyph({
+      name: '.notdef',
+      advanceWidth: FONT_CONFIG.fullWidthAdvance,
+      path: buildNotdefPath(),
+    }));
+
+    glyphs.push(new opentype.Glyph({
+      name: 'space',
+      unicode: 0x20,
+      advanceWidth: FONT_CONFIG.spaceAdvance,
+      path: new opentype.Path(),
+    }));
+
+    for (const char of chars) {
+      const strokes = getGlyphStrokes(char);
+      if (!strokes) continue; // 방어적 처리 (범위 산출 시점과 불일치할 일은 없음)
+      const metrics = computeGlyphMetrics(char, strokes);
+      const path = strokesToOpentypePath(strokes, metrics.xShift);
+      const code = char.codePointAt(0);
+      glyphs.push(new opentype.Glyph({
+        name: `uni${code.toString(16).toUpperCase().padStart(4, '0')}`,
+        unicode: code,
+        advanceWidth: metrics.advanceWidth,
+        path,
+      }));
+    }
+
+    const nameIsAscii = isAsciiString(meta.fontName);
+    const asciiName = nameIsAscii ? meta.fontName : 'Tegaki Font';
+
+    const font = new opentype.Font({
+      familyName: asciiName,
+      styleName: 'Regular',
+      unitsPerEm: FONT_CONFIG.unitsPerEm,
+      ascender: FONT_CONFIG.ascender,
+      descender: FONT_CONFIG.descender,
+      glyphs,
+    });
+
+    font.names.fontFamily = { en: asciiName, ko: meta.fontName, ja: meta.fontName };
+    font.names.fullName = { en: asciiName, ko: meta.fontName };
+    font.names.postScriptName = { en: asciiName.replace(/\s/g, '') };
+    if (meta.author) font.names.designer = { en: meta.author, ko: meta.author };
+    if (meta.description) font.names.description = { en: meta.description, ko: meta.description };
+
+    return font;
+  }
+
+  function downloadFont(font, filename) {
+    const buffer = font.toArrayBuffer();
+    const blob = new Blob([buffer], { type: 'font/otf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ── 내보내기 UI ──
+  const exportFontNameInput = document.getElementById('exportFontName');
+  const exportAuthorInput = document.getElementById('exportAuthor');
+  const exportDescriptionInput = document.getElementById('exportDescription');
+  const exportFilenameEl = document.getElementById('exportFilename');
+  const exportScopeEl = document.getElementById('exportScope');
+  const exportCountEl = document.getElementById('exportCount');
+  const exportBtn = document.getElementById('exportBtn');
+  const exportBtnLabel = document.getElementById('exportBtnLabel');
+  const exportSpinnerEl = document.getElementById('exportSpinner');
+  const exportReasonEl = document.getElementById('exportReason');
+  const iosModalOverlay = document.getElementById('iosModalOverlay');
+  const iosModalCloseBtn = document.getElementById('iosModalCloseBtn');
+
+  const MIN_EXPORT_CHARS = 10;
+
+  function getSelectedScope() {
+    const checked = exportScopeEl.querySelector('input[name="exportScope"]:checked');
+    return checked ? checked.value : 'all';
+  }
+
+  function updateExportFilename() {
+    const name = exportFontNameInput.value.trim();
+    exportFilenameEl.textContent = `파일 이름: ${sanitizeFilename(name)}.otf`;
+  }
+
+  function updateExportButtonState() {
+    const scope = getSelectedScope();
+    const count = getCharsForScope(scope).length;
+    exportCountEl.textContent = `포함될 글자 수: ${count}자`;
+    updateExportFilename();
+
+    const name = exportFontNameInput.value.trim();
+    let reason = '';
+    if (!name) reason = '폰트 이름을 입력해 주세요';
+    else if (count < MIN_EXPORT_CHARS) reason = '글자를 더 써 주세요';
+
+    exportReasonEl.textContent = reason;
+    exportReasonEl.hidden = !reason;
+    if (!isGeneratingFont) exportBtn.disabled = !!reason;
+  }
+
+  exportFontNameInput.addEventListener('input', updateExportButtonState);
+  exportScopeEl.addEventListener('change', updateExportButtonState);
+
+  let isGeneratingFont = false;
+
+  exportBtn.addEventListener('click', () => {
+    if (isGeneratingFont) return;
+    isGeneratingFont = true;
+    exportBtn.disabled = true;
+    exportBtn.classList.add('generating');
+    exportSpinnerEl.hidden = false;
+    exportBtnLabel.textContent = '생성 중…';
+
+    // 동기 작업이 길어질 수 있어(260자 기준 수백 ms) 스피너를 먼저 그리고 다음 틱에 생성 시작
+    setTimeout(() => {
+      try {
+        const scope = getSelectedScope();
+        const chars = getCharsForScope(scope);
+        const meta = {
+          fontName: exportFontNameInput.value.trim(),
+          author: exportAuthorInput.value.trim(),
+          description: exportDescriptionInput.value.trim(),
+        };
+        const font = generateFont(chars, meta);
+        const filename = `${sanitizeFilename(meta.fontName)}.otf`;
+        downloadFont(font, filename);
+        showToast(`폰트가 생성되었습니다 · ${chars.length}자 포함`);
+        if (isIOSDevice()) iosModalOverlay.hidden = false;
+      } catch (err) {
+        console.error('[폰트 생성 실패]', err); // 문제 발생 시 1차 점검용
+        showToast('폰트 생성에 실패했습니다. 다시 시도해 주세요.');
+      } finally {
+        isGeneratingFont = false;
+        exportBtn.classList.remove('generating');
+        exportSpinnerEl.hidden = true;
+        exportBtnLabel.textContent = '폰트 내려받기 (.otf)';
+        updateExportButtonState();
+      }
+    }, 0);
+  });
+
+  iosModalCloseBtn.addEventListener('click', () => {
+    iosModalOverlay.hidden = true;
+  });
 
   // ── 그룹 탭 ──
   let currentGroupId = CHARSET[0].id;
@@ -1519,6 +2085,7 @@
     currentGroupId = groupId;
     highlightActiveGroupTab();
     renderGlyphGrid();
+    updateBaselineHint();
   }
 
   // ── 글자 그리드 (선택된 그룹만 렌더 — 157칸 전체를 매번 다시 그리지 않음) ──
@@ -1606,13 +2173,17 @@
     prevMid = null;
     activePointerId = null;
 
+    // 베이스라인 가이드(보너스)가 currentGroupId를 참조하므로 redrawAll보다 먼저 갱신
+    const newGroupId = CHAR_TO_GROUP.get(char);
+    const groupChanged = newGroupId !== currentGroupId;
+    currentGroupId = newGroupId;
+
     redrawAll();
     updateButtonStates();
     updateCharUI();
+    updateBaselineHint();
 
-    const g = CHAR_TO_GROUP.get(char);
-    if (g !== currentGroupId) {
-      currentGroupId = g;
+    if (groupChanged) {
       highlightActiveGroupTab();
       renderGlyphGrid();
     } else {
@@ -1714,6 +2285,10 @@
     renderDerivedPanel();
     updateProgressBar();
     refreshPreview();
+    exportFontNameInput.value = '';
+    exportAuthorInput.value = '';
+    exportDescriptionInput.value = '';
+    updateExportButtonState();
     persistProject();
   });
 
@@ -1757,6 +2332,8 @@
     lastAvailableCount = getAvailableChars().length; // 최초 로드 시 강조 애니메이션 방지
     updateProgressBar();
     refreshPreview();
+    updateBaselineHint();
+    updateExportButtonState();
   }
 
   init();
