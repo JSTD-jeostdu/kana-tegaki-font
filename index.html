@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>手書き글꼴 — 손글씨 폰트 제작</title>
+<style>
+  :root {
+    --color-bg: #faf7f0;
+    --color-canvas-bg: #ffffff;
+    --color-border: #c9b8a3;
+    --color-guide: #e5dccb;
+    --color-accent: #d94f30;
+    --color-ink: #1a1a1a;
+    --color-text: #3a342c;
+    --color-text-muted: #8a7d6a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: "Pretendard", "Noto Sans KR", sans-serif;
+  }
+
+  header {
+    padding: 16px 24px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-accent);
+  }
+
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 40px;
+  }
+
+  .prompt {
+    margin-bottom: 16px;
+  }
+
+  .prompt h2 {
+    margin: 0 0 4px;
+    font-size: 22px;
+  }
+
+  .prompt p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 14px;
+  }
+
+  .workspace {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+  }
+
+  .canvas-wrap {
+    flex: 0 0 auto;
+    width: min(480px, 100%);
+  }
+
+  #kanaCanvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: var(--color-canvas-bg);
+    border: 2px solid var(--color-border);
+    border-radius: 4px;
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .controls {
+    flex: 1 1 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 180px;
+  }
+
+  .control-group h3 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+  }
+
+  .brush-options {
+    display: flex;
+    gap: 8px;
+  }
+
+  .brush-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    background: #fff;
+  }
+
+  .brush-option input {
+    accent-color: var(--color-accent);
+    margin: 0;
+  }
+
+  .brush-option.active {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  button.action-btn {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--color-text);
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  button.action-btn:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  button.action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .hint {
+    margin-top: 24px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+  }
+
+  @media (max-width: 720px) {
+    .workspace {
+      flex-direction: column;
+    }
+    .canvas-wrap {
+      width: 100%;
+    }
+    .controls {
+      width: 100%;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .control-group {
+      flex: 1 1 140px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>手書き글꼴</header>
+
+<main>
+  <div class="prompt">
+    <h2 id="currentCharLabel"># 지금 쓸 글자: <span id="currentChar">あ</span></h2>
+    <p>칸 가운데에 크게 써 주세요. 획 순서는 자유입니다.</p>
+  </div>
+
+  <div class="workspace">
+    <div class="canvas-wrap">
+      <canvas id="kanaCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <h3>붓 두께</h3>
+        <div class="brush-options" id="brushOptions">
+          <label class="brush-option" data-size="thin">
+            <input type="radio" name="brushSize" value="thin"> 얇게
+          </label>
+          <label class="brush-option active" data-size="normal">
+            <input type="radio" name="brushSize" value="normal" checked> 보통
+          </label>
+          <label class="brush-option" data-size="thick">
+            <input type="radio" name="brushSize" value="thick"> 굵게
+          </label>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>지우기</h3>
+        <button class="action-btn" id="undoBtn" disabled>한 획 지우기</button>
+        <br><br>
+        <button class="action-btn" id="clearAllBtn" disabled>전부 지우기</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint">
+    두께는 새로 긋는 획부터 적용됩니다.<br>
+    이미 그린 획은 지우고 다시 쓰면 돼요.
+  </p>
+</main>
+
+<script>
+  // ── 설정값: 모든 튜닝 상수를 이곳에 모아 관리 ──
+  const CONFIG = {
+    LOGICAL_SIZE: 640,            // 캔버스 논리 좌표계 크기 (정사각)
+    MAX_DISPLAY_SIZE: 480,        // 캔버스 최대 화면 표시 크기 (px)
+    BRUSH_SIZES: { thin: 12, normal: 18, thick: 26 },  // 붓 두께 (논리 px)
+    SMOOTHING_MIN_DIST: 1.5,      // 이 거리(논리 px) 미만 이동은 무시해 점 수 절약
+    CLEAR_CONFIRM_THRESHOLD: 3,   // 전부 지우기 시 confirm()을 띄우는 최소 획 수
+    COLORS: {
+      guide: '#e5dccb',
+      ink: '#1a1a1a'
+    }
+  };
+
+  // ── 전역 상태 ──
+  const state = {
+    brushSize: CONFIG.BRUSH_SIZES.normal,
+    strokes: [],        // { w: number, pts: [[x, y], ...] }[]
+    currentChar: 'あ'
+  };
+
+  // ── 저장 계층 자리 (구현은 S2에서) ──
+  const StorageAdapter = {
+    save(charKey, strokes) { /* TODO: S2 — localStorage 자동 저장 */ },
+    load(charKey) { /* TODO: S2 — localStorage 불러오기 */ }
+  };
+
+  // ── DOM 참조 ──
+  const canvas = document.getElementById('kanaCanvas');
+  const ctx = canvas.getContext('2d');
+  const canvasWrap = document.querySelector('.canvas-wrap');
+  const undoBtn = document.getElementById('undoBtn');
+  const clearAllBtn = document.getElementById('clearAllBtn');
+  const brushOptions = document.getElementById('brushOptions');
+
+  document.getElementById('currentChar').textContent = state.currentChar;
+
+  // ── 순수 렌더 함수: 이후 단계(썸네일·미리보기)에서 컨텍스트만 바꿔 재사용 ──
+  function drawSmoothStroke(ctx, pts, width) {
+    ctx.lineWidth = width;
+    if (pts.length === 0) return;
+    if (pts.length === 1) {
+      ctx.beginPath();
+      ctx.arc(pts[0][0], pts[0][1], width / 2, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+      const my = (pts[i][1] + pts[i + 1][1]) / 2;
+      ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+    }
+    ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+    ctx.stroke();
+  }
+
+  function renderStrokes(ctx, strokes, opts = {}) {
+    const { scale = 1, offsetX = 0, offsetY = 0, color = CONFIG.COLORS.ink } = opts;
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const stroke of strokes) {
+      drawSmoothStroke(ctx, stroke.pts, stroke.w);
+    }
+    ctx.restore();
+  }
+
+  function drawGuide(ctx) {
+    const size = CONFIG.LOGICAL_SIZE;
+    ctx.save();
+    ctx.strokeStyle = CONFIG.COLORS.guide;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(size / 2, 0);
+    ctx.lineTo(size / 2, size);
+    ctx.moveTo(0, size / 2);
+    ctx.lineTo(size, size / 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function redrawAll() {
+    ctx.clearRect(0, 0, CONFIG.LOGICAL_SIZE, CONFIG.LOGICAL_SIZE);
+    drawGuide(ctx);
+    renderStrokes(ctx, state.strokes, { color: CONFIG.COLORS.ink });
+  }
+
+  // ── 캔버스 좌표계 설정 (레티나 대응) ──
+  function resizeCanvas() {
+    const displaySize = Math.min(CONFIG.MAX_DISPLAY_SIZE, canvasWrap.clientWidth);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = displaySize * dpr;
+    canvas.height = displaySize * dpr;
+    const scale = (displaySize * dpr) / CONFIG.LOGICAL_SIZE;
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    redrawAll();
+  }
+
+  // 포인터 이벤트 좌표 → 논리 좌표(0~640) 변환
+  function toLogical(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (CONFIG.LOGICAL_SIZE / rect.width);
+    const y = (e.clientY - rect.top) * (CONFIG.LOGICAL_SIZE / rect.height);
+    return [Math.round(x), Math.round(y)];
+  }
+
+  function dist(a, b) {
+    return Math.hypot(a[0] - b[0], a[1] - b[1]);
+  }
+
+  // ── 드로잉 입력 처리 ──
+  let activePointerId = null;
+  let currentPts = [];
+  let activeStrokeWidth = state.brushSize;
+  let prevMid = null;
+
+  function addPoint(p) {
+    const last = currentPts[currentPts.length - 1];
+    if (last && dist(last, p) < CONFIG.SMOOTHING_MIN_DIST) return;
+    currentPts.push(p);
+
+    const n = currentPts.length;
+    if (n < 2) return;
+    const ctrl = currentPts[n - 2];
+    const newMid = [(ctrl[0] + p[0]) / 2, (ctrl[1] + p[1]) / 2];
+
+    // 증분 렌더: 마지막 세그먼트만 그림 (전체 리렌더 없이)
+    ctx.strokeStyle = CONFIG.COLORS.ink;
+    ctx.lineWidth = activeStrokeWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(prevMid[0], prevMid[1]);
+    ctx.quadraticCurveTo(ctrl[0], ctrl[1], newMid[0], newMid[1]);
+    ctx.stroke();
+    prevMid = newMid;
+  }
+
+  function updateButtonStates() {
+    const hasStrokes = state.strokes.length > 0;
+    undoBtn.disabled = !hasStrokes;
+    clearAllBtn.disabled = !hasStrokes;
+  }
+
+  function onPointerDown(e) {
+    if (activePointerId !== null) return; // 멀티터치: 첫 포인터만 인정
+    activePointerId = e.pointerId;
+    canvas.setPointerCapture(activePointerId);
+
+    const p = toLogical(e);
+    activeStrokeWidth = state.brushSize;
+    currentPts = [p];
+    prevMid = p;
+  }
+
+  function onPointerMove(e) {
+    if (e.pointerId !== activePointerId) return;
+    const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ev of events) {
+      addPoint(toLogical(ev));
+    }
+  }
+
+  function finishStroke() {
+    if (currentPts.length > 0) {
+      state.strokes.push({ w: activeStrokeWidth, pts: currentPts });
+      StorageAdapter.save(state.currentChar, state.strokes);
+    }
+    currentPts = [];
+    prevMid = null;
+    activePointerId = null;
+    redrawAll();
+    updateButtonStates();
+  }
+
+  function onPointerUp(e) {
+    if (e.pointerId !== activePointerId) return;
+    finishStroke();
+  }
+
+  function onPointerCancel(e) {
+    if (e.pointerId !== activePointerId) return;
+    finishStroke();
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointercancel', onPointerCancel);
+
+  // ── 붓 두께 선택 ──
+  brushOptions.addEventListener('change', (e) => {
+    const size = e.target.value;
+    state.brushSize = CONFIG.BRUSH_SIZES[size];
+    brushOptions.querySelectorAll('.brush-option').forEach((el) => {
+      el.classList.toggle('active', el.dataset.size === size);
+    });
+  });
+
+  // ── 한 획 지우기 ──
+  function undoStroke() {
+    if (state.strokes.length === 0) return;
+    state.strokes.pop();
+    redrawAll();
+    updateButtonStates();
+    StorageAdapter.save(state.currentChar, state.strokes);
+  }
+  undoBtn.addEventListener('click', undoStroke);
+
+  // ── 전부 지우기 ──
+  clearAllBtn.addEventListener('click', () => {
+    if (state.strokes.length === 0) return;
+    if (state.strokes.length >= CONFIG.CLEAR_CONFIRM_THRESHOLD) {
+      if (!confirm('지금까지 쓴 획을 모두 지울까요?')) return;
+    }
+    state.strokes = [];
+    redrawAll();
+    updateButtonStates();
+    StorageAdapter.save(state.currentChar, state.strokes);
+  });
+
+  // ── 단축키: Ctrl/Cmd+Z = 한 획 지우기 ──
+  window.addEventListener('keydown', (e) => {
+    const isUndoKey = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z';
+    if (isUndoKey) {
+      e.preventDefault();
+      undoStroke();
+    }
+  });
+
+  // ── 반응형 리사이즈 ──
+  window.addEventListener('resize', resizeCanvas);
+
+  resizeCanvas();
+  updateButtonStates();
+</script>
+
+</body>
+</html>
